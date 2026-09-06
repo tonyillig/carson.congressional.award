@@ -198,6 +198,47 @@
   .setup-card a{color:var(--accent);}
   .setup-error{font-size:12.5px;color:var(--red);margin-top:10px;display:none;}
   .setup-error.show{display:block;}
+
+  /* ---- warnings ---- */
+  .warning-banner{background:rgba(193,67,46,0.14);border:1px solid var(--red);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;display:flex;gap:10px;align-items:flex-start;}
+  .warning-banner svg{width:18px;height:18px;flex-shrink:0;color:var(--red);margin-top:1px;}
+  .warning-banner .w-body b{color:var(--ink);}
+  .warning-banner .w-body{color:var(--ink-dim);line-height:1.4;}
+
+  /* ---- tier standing ---- */
+  .standing-line{font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
+
+  /* ---- trail ticks + goal flags ---- */
+  .trail{position:relative;height:26px;margin:6px 0 2px;}
+  .trail .bed{position:absolute;top:11px;left:0;right:0;height:4px;border-radius:2px;background:repeating-linear-gradient(90deg, var(--line-strong) 0 5px, transparent 5px 10px);}
+  .trail .fill{position:absolute;top:11px;left:0;height:4px;border-radius:2px;transition:width .5s ease;}
+  .trail .tick{position:absolute;top:6px;width:2px;height:14px;background:var(--line-strong);border-radius:1px;}
+  .trail .tick.reached{background:var(--ink-dim);}
+  .trail .goal-flag{position:absolute;top:-2px;width:9px;height:9px;transform:translateX(-50%) rotate(45deg);border-radius:2px;border:1.5px solid var(--surface);box-shadow:0 0 0 1px var(--line-strong);}
+  .trail .end-flag{position:absolute;top:-4px;right:-2px;width:13px;height:13px;color:var(--ink-faint);}
+
+  .month-row{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint);margin-top:2px;}
+
+  /* ---- drawer ---- */
+  .drawer-toggle{width:100%;background:none;border:none;color:var(--ink-faint);font-size:11.5px;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 0 0;font-family:inherit;margin-top:2px;}
+  .drawer-toggle svg{width:12px;height:12px;transition:transform .2s;}
+  .drawer-toggle.open svg{transform:rotate(180deg);}
+  .cat-drawer{max-height:0;overflow:hidden;transition:max-height .35s ease;}
+  .cat-drawer.open{max-height:900px;}
+  .cat-drawer-inner{padding-top:12px;margin-top:10px;border-top:1px solid var(--line);}
+
+  .tier-ladder{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .tier-row{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:7px 10px;border-radius:8px;background:var(--surface-2);}
+  .tier-row.done{color:var(--ink);}
+  .tier-row.pending{color:var(--ink-faint);}
+  .tier-row .t-right{display:flex;align-items:center;gap:6px;}
+  .tier-row svg{width:13px;height:13px;flex-shrink:0;}
+
+  .mini-goal{background:var(--surface-2);border-radius:9px;padding:10px 12px;margin-bottom:8px;}
+  .mini-goal .mg-top{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;margin-bottom:6px;}
+  .mini-goal .mg-sub{font-size:11px;color:var(--ink-faint);}
+  .mini-goal .mg-bar{position:relative;height:6px;background:var(--surface);border-radius:3px;margin:6px 0 4px;overflow:hidden;}
+  .mini-goal .mg-fill{position:absolute;top:0;left:0;bottom:0;border-radius:3px;}
 </style>
 </head>
 <body>
@@ -232,6 +273,7 @@
 
   <main>
     <div class="view active" id="view-dashboard">
+      <div id="warningBanners"></div>
       <div class="compass-card">
         <div class="compass">
           <svg viewBox="0 0 120 120">
@@ -355,12 +397,61 @@
 
 <script>
 const CATS = [
-  {key:'service',    name:'Voluntary Public Service', short:'Service',    color:'var(--blue)'},
-  {key:'personal',   name:'Personal Development',      short:'Personal',   color:'var(--yellow)'},
-  {key:'fitness',    name:'Physical Fitness',          short:'Fitness',    color:'var(--red)'},
-  {key:'expedition', name:'Expedition/Exploration',    short:'Expedition', color:'var(--white)'}
+  {key:'service',  name:'Voluntary Public Service', short:'Service',  color:'var(--blue)'},
+  {key:'personal', name:'Personal Development',     short:'Personal', color:'var(--yellow)'},
+  {key:'fitness',  name:'Physical Fitness',         short:'Fitness',  color:'var(--red)'}
 ];
 const catByKey = k => CATS.find(c=>c.key===k);
+
+// Six-tier hour chart, confirmed against congressionalaward.org (Gold Medal figures)
+// and a hosted copy of the program's own Participant+Advisor deck for the interim tiers.
+const TIERS = [
+  {label:'Bronze Certificate', short:'Bronze Cert', months:0},
+  {label:'Silver Certificate', short:'Silver Cert', months:0},
+  {label:'Gold Certificate',   short:'Gold Cert',   months:6},
+  {label:'Bronze Medal',       short:'Bronze Medal',months:7},
+  {label:'Silver Medal',       short:'Silver Medal',months:12},
+  {label:'Gold Medal',         short:'Gold Medal',  months:24},
+];
+const TIER_HOURS = {
+  service:  [30,60,90,100,200,400],
+  personal: [15,30,45,50,100,200],
+  fitness:  [15,30,45,50,100,200],
+};
+function ultimateHours(catKey){ return TIER_HOURS[catKey][TIER_HOURS[catKey].length-1]; }
+function monthsLoggedFor(catKey){
+  const set = new Set();
+  logs.forEach(l=>{ if(l.category===catKey && Number(l.hours)>0 && l.date) set.add(l.date.slice(0,7)); });
+  return set.size;
+}
+function currentTierIndex(catKey){
+  const hrs = totalHoursFor(catKey);
+  const months = monthsLoggedFor(catKey);
+  let idx = -1;
+  TIER_HOURS[catKey].forEach((h,i)=>{ if(hrs>=h && months>=TIERS[i].months) idx = i; });
+  return idx;
+}
+function goalFlagPositions(catKey){
+  let running = 0;
+  return goals.filter(g=>g.category===catKey).map(g=>{
+    running += Number(g.target||0);
+    return { goal:g, cum:running };
+  });
+}
+function daysLeftInMonth(d){
+  const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  return last - d.getDate();
+}
+function categoryAtRisk(catKey){
+  if(monthsLoggedFor(catKey) >= 24) return false;
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+  const hoursThisMonth = logs.filter(l=>l.category===catKey && l.date && l.date.slice(0,7)===ym)
+    .reduce((s,l)=>s+Number(l.hours||0),0);
+  if(hoursThisMonth > 0) return false;
+  return daysLeftInMonth(now) <= 10;
+}
+let drawerOpen = {};
 
 let goals = [];
 let logs = [];
@@ -442,49 +533,118 @@ function renderAll(){
 }
 
 function renderDashboard(){
+  // ---- warnings ----
+  const atRisk = CATS.filter(c=>categoryAtRisk(c.key));
+  const wb = document.getElementById('warningBanners');
+  wb.innerHTML = atRisk.map(c=>`
+    <div class="warning-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.86L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.86a2 2 0 00-3.4 0z"/></svg>
+      <div class="w-body"><b>${c.name}</b> hasn't had any hours logged this month, and fewer than 10 days are left. Schedule something soon or this month won't count toward the 24-month requirement.</div>
+    </div>`).join('');
+
+  // ---- overall compass: combined hours toward 800 (400+200+200) ----
   const total = logs.reduce((s,l)=>s+Number(l.hours||0),0);
-  const targetSum = CATS.reduce((s,c)=>s+targetHoursFor(c.key),0);
+  const combinedTarget = CATS.reduce((s,c)=>s+ultimateHours(c.key),0); // 800
   document.getElementById('totalHoursNum').textContent = fmt(total);
-  const pct = targetSum>0 ? Math.min(100, (total/targetSum)*100) : 0;
+  const pct = Math.min(100, (total/combinedTarget)*100);
   const circumference = 314;
   document.getElementById('ringFg').setAttribute('stroke-dasharray', `${(pct/100*circumference).toFixed(1)} ${circumference}`);
 
   const headline = document.getElementById('dashHeadline');
   const sub = document.getElementById('dashSub');
+  let minIdx = Infinity, bottleneck = null;
+  CATS.forEach(c=>{ const idx = currentTierIndex(c.key); if(idx < minIdx){ minIdx = idx; bottleneck = c; } });
   if(logs.length===0){
     headline.textContent = 'No hours logged yet';
     sub.textContent = 'Tap the + button to add your first entry.';
-  } else if(targetSum>0){
-    headline.textContent = `${Math.round(pct)}% toward your set goals`;
-    sub.textContent = `${fmt(total)} of ${fmt(targetSum)} target hours across all goals.`;
+  } else if(minIdx < 0){
+    headline.textContent = 'Working toward Bronze Certificate';
+    sub.textContent = `${bottleneck.name} needs the most work to get there first.`;
   } else {
-    headline.textContent = `${fmt(total)} hours logged so far`;
-    sub.textContent = 'Set targets on your goals to see progress toward them here.';
+    headline.textContent = `${TIERS[minIdx].label} reached`;
+    sub.textContent = minIdx < TIERS.length-1
+      ? `${bottleneck.name} is the pace-setter for reaching ${TIERS[minIdx+1].label} next.`
+      : `Gold Medal hour + month thresholds met in all three areas.`;
   }
 
   const catCards = document.getElementById('catCards');
   catCards.innerHTML = CATS.map(c=>{
     const hrs = totalHoursFor(c.key);
-    const target = targetHoursFor(c.key);
-    const pct = target>0 ? Math.min(100,(hrs/target)*100) : (hrs>0? 8:0);
+    const ult = ultimateHours(c.key);
+    const pct = Math.min(100, (hrs/ult)*100);
+    const months = monthsLoggedFor(c.key);
+    const tierIdx = currentTierIndex(c.key);
+    const tierLabel = tierIdx>=0 ? TIERS[tierIdx].short : 'Not yet at Bronze';
+    const flags = goalFlagPositions(c.key);
+    const isOpen = !!drawerOpen[c.key];
+
+    const ticks = TIER_HOURS[c.key].map(h=>{
+      const p = Math.min(100, (h/ult)*100);
+      return `<div class="tick ${hrs>=h?'reached':''}" style="left:${p}%"></div>`;
+    }).join('');
+    const flagEls = flags.map(f=>{
+      const p = Math.min(100, (f.cum/ult)*100);
+      return `<div class="goal-flag" style="left:${p}%;background:${c.color}" title="${escapeHtml(f.goal.title)}"></div>`;
+    }).join('');
+
+    const ladder = TIERS.map((t,i)=>{
+      const need = TIER_HOURS[c.key][i];
+      const done = i<=tierIdx;
+      return `<div class="tier-row ${done?'done':'pending'}">
+        <span>${t.label}</span>
+        <span class="t-right">
+          ${done
+            ? `<svg viewBox="0 0 24 24" fill="none" stroke="#6FA96A" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>`
+            : `<span>${fmt(need)}h · ${t.months||0}mo</span>`}
+        </span>
+      </div>`;
+    }).join('');
+
     const catGoals = goals.filter(g=>g.category===c.key);
+    const goalsHtml = catGoals.length===0
+      ? emptyState('No goals set yet','Tap the + button on the Goals tab to add one here.','M5 21V4M5 4h13l-3 4 3 4H5')
+      : catGoals.map(g=>{
+          const gh = logs.filter(l=>l.goalId===g.id).reduce((s,l)=>s+Number(l.hours||0),0);
+          const gp = g.target>0 ? Math.min(100,(gh/g.target)*100) : 0;
+          return `<div class="mini-goal">
+            <div class="mg-top"><span>${escapeHtml(g.title)}</span><span>${fmt(gh)}${g.target?` / ${fmt(g.target)}`:''}h</span></div>
+            <div class="mg-bar"><div class="mg-fill" style="width:${gp}%;background:${c.color}"></div></div>
+            ${g.date?`<div class="mg-sub">Target date: ${niceDate(g.date)}</div>`:''}
+          </div>`;
+        }).join('');
+
     return `
     <div class="cat-card">
       <div class="cat-head">
         <div class="cat-name"><span class="swatch" style="background:${c.color}"></span>${c.name}</div>
-        <div class="cat-hours"><b>${fmt(hrs)}</b>${target>0?` / ${fmt(target)} hrs`:' hrs'}</div>
+        <div class="cat-hours"><b>${fmt(hrs)}</b> / ${fmt(ult)} hrs</div>
       </div>
+      <div class="standing-line">${tierLabel}${tierIdx<TIERS.length-1 ? ` · next: ${TIERS[tierIdx+1].label}` : ' · Gold Medal level'}</div>
       <div class="trail">
         <div class="bed"></div>
         <div class="fill" style="width:${pct}%;background:${c.color}"></div>
-        <svg class="flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 5h13l-2.5 3L18 11H5"/></svg>
+        ${ticks}
+        ${flagEls}
+        <svg class="end-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 5h13l-2.5 3L18 11H5"/></svg>
       </div>
-      ${catGoals.length===0
-        ? `<div class="empty-note">No goals set for this area yet.</div>`
-        : `<div class="goal-mini">${catGoals.length} goal${catGoals.length>1?'s':''} · ${catGoals.map(g=>g.title).slice(0,2).join(', ')}${catGoals.length>2?'…':''}</div>`
-      }
+      <div class="month-row"><span>${months} / 24 months with activity</span><span>${catGoals.length} goal${catGoals.length===1?'':'s'}</span></div>
+      <button class="drawer-toggle ${isOpen?'open':''}" data-drawer="${c.key}">
+        ${isOpen?'Hide':'Show'} tiers &amp; goals
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="cat-drawer ${isOpen?'open':''}">
+        <div class="cat-drawer-inner">
+          <div class="tier-ladder">${ladder}</div>
+          ${goalsHtml}
+        </div>
+      </div>
     </div>`;
   }).join('');
+  catCards.querySelectorAll('[data-drawer]').forEach(b=>b.onclick=()=>{
+    const k = b.dataset.drawer;
+    drawerOpen[k] = !drawerOpen[k];
+    renderDashboard();
+  });
 
   const recent = [...logs].sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,5);
   const recentList = document.getElementById('recentList');
