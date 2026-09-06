@@ -171,14 +171,14 @@
   input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:11px 12px;color:var(--ink);font-family:inherit;font-size:14px;}
   textarea{resize:vertical;min-height:64px;}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;}
-  .cat-select{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
-  .cat-opt{border:1px solid var(--line-strong);border-radius:9px;padding:10px 6px;font-size:11.5px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;text-align:center;}
-  .cat-opt input{width:auto;margin:0;position:absolute;opacity:0;pointer-events:none;}
-  .cat-opt .dot{display:none;}
-  .cat-opt.picked{border-color:var(--accent);background:rgba(214,87,43,0.08);}
+  .cat-chip-row{display:flex;gap:7px;}
+  .cat-chip{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 6px;border-radius:20px;border:1px solid var(--line-strong);color:var(--ink-dim);font-size:12px;background:transparent;cursor:pointer;}
+  .cat-chip input{position:absolute;opacity:0;pointer-events:none;}
+  .cat-chip.picked{border-color:var(--accent);background:rgba(214,87,43,0.1);color:var(--ink);font-weight:600;}
   .cat-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
   .cat-icon svg{width:100%;height:100%;display:block;}
   .cat-icon-badge{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .input-narrow{width:auto;max-width:165px;}
   .toggle-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px;}
   .toggle-row span{font-size:13px;}
   .switch{position:relative;width:42px;height:24px;flex-shrink:0;}
@@ -390,7 +390,7 @@
   <div class="sheet-handle"></div>
   <h3>Log hours</h3>
   <label>Category</label>
-  <div class="cat-select" id="logCatSelect"></div>
+  <div class="cat-chip-row" id="logCatSelect"></div>
   <label>Goal (optional)</label>
   <select id="logGoalSelect"><option value="">— none —</option></select>
   <label>Date</label>
@@ -411,13 +411,13 @@
   <div class="sheet-handle"></div>
   <h3>New goal</h3>
   <label>Category</label>
-  <div class="cat-select" id="goalCatSelect"></div>
+  <div class="cat-chip-row" id="goalCatSelect"></div>
   <label>Goal title</label>
   <input type="text" id="goalTitle" placeholder="e.g. Volunteer at food pantry">
   <label>Target hours <span style="color:var(--ink-faint)">(confirm with your Advisor)</span></label>
   <input type="number" id="goalTarget" min="0" step="1" placeholder="e.g. 50">
   <label>Target date (optional)</label>
-  <input type="date" id="goalDate">
+  <input type="date" id="goalDate" class="input-narrow">
   <label>Notes (optional)</label>
   <textarea id="goalNotes" placeholder="What's the plan for this goal?"></textarea>
   <label>Validator name (optional)</label>
@@ -929,14 +929,14 @@ function renderCatSelects(){
   ['logCatSelect','goalCatSelect'].forEach(id=>{
     const el = document.getElementById(id);
     el.innerHTML = CATS.map(c=>`
-      <label class="cat-opt" data-key="${c.key}">
+      <label class="cat-chip" data-key="${c.key}">
         <input type="radio" name="${id}" value="${c.key}">
-        ${catIcon(c.key, 22)}
+        ${catIcon(c.key, 16)}
         <span>${c.short}</span>
       </label>`).join('');
-    el.querySelectorAll('.cat-opt').forEach(opt=>{
+    el.querySelectorAll('.cat-chip').forEach(opt=>{
       opt.querySelector('input').addEventListener('change', ()=>{
-        el.querySelectorAll('.cat-opt').forEach(o=>o.classList.remove('picked'));
+        el.querySelectorAll('.cat-chip').forEach(o=>o.classList.remove('picked'));
         opt.classList.add('picked');
         if(id==='logCatSelect') populateGoalSelect(opt.dataset.key);
       });
@@ -945,7 +945,7 @@ function renderCatSelects(){
 }
 function pickCat(selectId, key){
   const el = document.getElementById(selectId);
-  el.querySelectorAll('.cat-opt').forEach(o=>{
+  el.querySelectorAll('.cat-chip').forEach(o=>{
     const match = o.dataset.key===key;
     o.classList.toggle('picked', match);
     o.querySelector('input').checked = match;
