@@ -75,7 +75,6 @@
   .month-card-head .month-days-left{font-size:11px;color:var(--ink-faint);}
   .month-row-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);}
   .month-row-item:first-child{border-top:none;padding-top:0;}
-  .month-row-item .swatch{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);flex-shrink:0;}
   .month-row-item .mr-name{font-size:13px;flex:1;}
   .mr-status{font-size:11.5px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
   .mr-status svg{width:14px;height:14px;flex-shrink:0;}
@@ -90,7 +89,6 @@
   .cat-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 14px;margin-bottom:10px;}
   .cat-card .cat-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
   .cat-card .cat-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;}
-  .cat-card .swatch{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);flex-shrink:0;}
   .cat-card .cat-hours{font-size:12px;color:var(--ink-dim);}
   .cat-card .cat-hours b{color:var(--ink);font-weight:600;}
 
@@ -108,19 +106,17 @@
   .recent-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;}
   .recent-item:last-child{border-bottom:none;}
   .recent-item .r-left{display:flex;align-items:center;gap:9px;}
-  .recent-item .r-cat-dot{width:7px;height:7px;border-radius:2px;transform:rotate(45deg);flex-shrink:0;}
   .recent-item .r-desc{color:var(--ink);}
   .recent-item .r-date{color:var(--ink-faint);font-size:11px;}
   .recent-item .r-hours{font-family:'Space Grotesk';font-weight:600;font-size:13px;}
 
   .filter-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;}
-  .chip{flex-shrink:0;font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid var(--line-strong);color:var(--ink-dim);background:transparent;white-space:nowrap;}
+  .chip{flex-shrink:0;font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid var(--line-strong);color:var(--ink-dim);background:transparent;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
   .chip.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600;}
 
   .log-entry{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:8px;}
   .log-entry .le-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
   .le-cat{font-size:11px;color:var(--ink-dim);display:flex;align-items:center;gap:6px;margin-bottom:4px;}
-  .le-cat .dot{width:7px;height:7px;border-radius:2px;transform:rotate(45deg);}
   .le-desc{font-size:13.5px;line-height:1.4;}
   .le-hours{font-family:'Space Grotesk';font-weight:700;font-size:15px;flex-shrink:0;}
   .le-meta{font-size:11px;color:var(--ink-faint);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;}
@@ -132,7 +128,6 @@
   .goal-card .g-top{display:flex;justify-content:space-between;gap:8px;}
   .goal-card .g-title{font-size:14.5px;font-weight:600;}
   .goal-card .g-cat{font-size:11px;color:var(--ink-dim);margin-top:2px;display:flex;align-items:center;gap:6px;}
-  .goal-card .g-cat .dot{width:7px;height:7px;border-radius:2px;transform:rotate(45deg);}
   .goal-card .g-notes{font-size:12.5px;color:var(--ink-dim);margin-top:8px;line-height:1.5;}
   .goal-card .g-progress-row{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint);margin-top:12px;}
   .goal-card .g-date{font-size:11px;color:var(--ink-faint);}
@@ -176,11 +171,14 @@
   input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:11px 12px;color:var(--ink);font-family:inherit;font-size:14px;}
   textarea{resize:vertical;min-height:64px;}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;}
-  .cat-select{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .cat-opt{border:1px solid var(--line-strong);border-radius:9px;padding:10px;font-size:12.5px;display:flex;align-items:center;gap:8px;cursor:pointer;}
-  .cat-opt input{width:auto;margin:0;}
-  .cat-opt .dot{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);flex-shrink:0;}
+  .cat-select{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
+  .cat-opt{border:1px solid var(--line-strong);border-radius:9px;padding:10px 6px;font-size:11.5px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;text-align:center;}
+  .cat-opt input{width:auto;margin:0;position:absolute;opacity:0;pointer-events:none;}
+  .cat-opt .dot{display:none;}
   .cat-opt.picked{border-color:var(--accent);background:rgba(214,87,43,0.08);}
+  .cat-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .cat-icon svg{width:100%;height:100%;display:block;}
+  .cat-icon-badge{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .toggle-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px;}
   .toggle-row span{font-size:13px;}
   .switch{position:relative;width:42px;height:24px;flex-shrink:0;}
@@ -434,11 +432,18 @@
 
 <script>
 const CATS = [
-  {key:'service',  name:'Voluntary Public Service', short:'Service',  color:'var(--blue)'},
-  {key:'personal', name:'Personal Development',     short:'Personal', color:'var(--yellow)'},
-  {key:'fitness',  name:'Physical Fitness',         short:'Fitness',  color:'var(--red)'}
+  {key:'service',  name:'Voluntary Public Service', short:'Service',  color:'var(--blue)',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V4a1.5 1.5 0 013 0v6"/><path d="M11 10V3a1.5 1.5 0 013 0v7"/><path d="M14 10.5V4a1.5 1.5 0 013 0v8"/><path d="M17 11.5V8a1.5 1.5 0 013 0v6c0 3.5-2.5 6.5-6 6.5h-2c-2 0-3.3-.7-4.5-2.2L5 16c-.7-.9-.5-2 .4-2.6.8-.6 1.9-.4 2.6.4L9 15"/></svg>`},
+  {key:'personal', name:'Personal Development',     short:'Personal', color:'var(--yellow)',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5a3 3 0 00-3 3 3 3 0 00-2 2.8A3 3 0 003 12a3 3 0 001.2 2.4A3 3 0 007 18a3 3 0 002.7 1.7A3 3 0 0012 21a3 3 0 002.3-1.3A3 3 0 0017 18a3 3 0 002.8-3.6A3 3 0 0021 12a3 3 0 00-1.5-2.6 3 3 0 00-2-2.9 3 3 0 00-3-3 3 3 0 00-2.5 1.3A3 3 0 009.5 3.5z"/><path d="M12 4v16"/></svg>`},
+  {key:'fitness',  name:'Physical Fitness',         short:'Fitness',  color:'var(--red)',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M2 10.5v3M20 9v6M22 10.5v3"/><path d="M7 8v8M17 8v8"/><path d="M7 12h10"/></svg>`}
 ];
 const catByKey = k => CATS.find(c=>c.key===k);
+function catIcon(catKey, sizePx, color){
+  const c = catByKey(catKey);
+  return `<span class="cat-icon" style="width:${sizePx}px;height:${sizePx}px;color:${color||c.color}">${c.icon}</span>`;
+}
 
 // Six-tier hour chart, confirmed against congressionalaward.org (Gold Medal figures)
 // and a hosted copy of the program's own Participant+Advisor deck for the interim tiers.
@@ -591,7 +596,7 @@ function renderDashboard(){
       status = `<span class="mr-status pending">Not yet this month</span>`;
     }
     return `<div class="month-row-item">
-      <span class="swatch" style="background:${c.color}"></span>
+      ${catIcon(c.key, 18)}
       <span class="mr-name">${c.name}</span>
       ${status}
     </div>`;
@@ -683,7 +688,7 @@ function renderDashboard(){
     return `
     <div class="cat-card">
       <div class="cat-head">
-        <div class="cat-name"><span class="swatch" style="background:${c.color}"></span>${c.name}</div>
+        <div class="cat-name"><span class="cat-icon-badge" style="background:var(--surface-2)">${catIcon(c.key, 15)}</span>${c.name}</div>
         <div class="cat-hours"><b>${fmt(hrs)}</b> / ${fmt(ult)} hrs</div>
       </div>
       <div class="standing-line">${tierLabel}${tierIdx<TIERS.length-1 ? ` · next: ${TIERS[tierIdx+1].label}` : ' · Gold Medal level'}</div>
@@ -730,7 +735,7 @@ function renderDashboard(){
       const c = catByKey(l.category);
       return `<div class="recent-item">
         <div class="r-left">
-          <span class="r-cat-dot" style="background:${c.color}"></span>
+          ${catIcon(l.category, 15)}
           <div><div class="r-desc">${escapeHtml(l.desc||c.short)}</div><div class="r-date">${niceDate(l.date)}</div></div>
         </div>
         <div class="r-hours">${fmt(l.hours)}h</div>
@@ -828,7 +833,7 @@ function emptyState(title,sub,iconPath){
 function renderLogFilters(){
   const el = document.getElementById('logFilters');
   el.innerHTML = `<button class="chip ${logFilter==='all'?'active':''}" data-cat="all">All</button>` +
-    CATS.map(c=>`<button class="chip ${logFilter===c.key?'active':''}" data-cat="${c.key}">${c.short}</button>`).join('');
+    CATS.map(c=>`<button class="chip ${logFilter===c.key?'active':''}" data-cat="${c.key}">${catIcon(c.key,12,logFilter===c.key?'var(--accent-ink)':c.color)}${c.short}</button>`).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ logFilter=b.dataset.cat; renderLogFilters(); renderLogList(); });
 }
 function renderLogList(){
@@ -844,7 +849,7 @@ function renderLogList(){
     return `<div class="log-entry">
       <div class="le-top">
         <div>
-          <div class="le-cat"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+          <div class="le-cat">${catIcon(l.category, 14)}${c.name}</div>
           <div class="le-desc">${escapeHtml(l.desc)||'<em style="color:var(--ink-faint)">No description</em>'}</div>
         </div>
         <div class="le-hours">${fmt(l.hours)}h</div>
@@ -870,7 +875,7 @@ function renderLogList(){
 function renderGoalFilters(){
   const el = document.getElementById('goalFilters');
   el.innerHTML = `<button class="chip ${goalFilter==='all'?'active':''}" data-cat="all">All</button>` +
-    CATS.map(c=>`<button class="chip ${goalFilter===c.key?'active':''}" data-cat="${c.key}">${c.short}</button>`).join('');
+    CATS.map(c=>`<button class="chip ${goalFilter===c.key?'active':''}" data-cat="${c.key}">${catIcon(c.key,12,goalFilter===c.key?'var(--accent-ink)':c.color)}${c.short}</button>`).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{ goalFilter=b.dataset.cat; renderGoalFilters(); renderGoalList(); });
 }
 function renderGoalList(){
@@ -887,7 +892,7 @@ function renderGoalList(){
       <div class="g-top">
         <div>
           <div class="g-title">${escapeHtml(g.title)}</div>
-          <div class="g-cat"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+          <div class="g-cat">${catIcon(g.category, 14)}${c.name}</div>
         </div>
         ${g.date?`<div class="g-date">by ${niceDate(g.date)}</div>`:''}
       </div>
@@ -926,7 +931,8 @@ function renderCatSelects(){
     el.innerHTML = CATS.map(c=>`
       <label class="cat-opt" data-key="${c.key}">
         <input type="radio" name="${id}" value="${c.key}">
-        <span class="dot" style="background:${c.color}"></span>${c.short}
+        ${catIcon(c.key, 22)}
+        <span>${c.short}</span>
       </label>`).join('');
     el.querySelectorAll('.cat-opt').forEach(opt=>{
       opt.querySelector('input').addEventListener('change', ()=>{
