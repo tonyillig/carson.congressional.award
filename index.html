@@ -69,19 +69,23 @@
   .view.active{display:block;}
   @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 
-  .compass-card{
-    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-    padding:22px;margin-bottom:16px;display:flex;align-items:center;gap:18px;
-  }
-  .compass{position:relative;width:104px;height:104px;flex-shrink:0;}
-  .compass svg{width:100%;height:100%;transform:rotate(-90deg);}
-  .compass .ring-bg{fill:none;stroke:var(--surface-2);stroke-width:9;}
-  .compass .ring-fg{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;transition:stroke-dasharray .5s ease;}
-  .compass .needle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;}
-  .compass .needle .num{font-family:'Space Grotesk';font-size:26px;font-weight:700;}
-  .compass .needle .unit{font-size:10px;color:var(--ink-dim);letter-spacing:0.03em;}
-  .compass-copy .headline{font-size:14px;color:var(--ink-dim);margin-bottom:4px;}
-  .compass-copy .sub{font-size:12px;color:var(--ink-faint);line-height:1.5;}
+  .month-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px;}
+  .month-card-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+  .month-card-head .month-label{font-family:'Space Grotesk';font-size:15px;font-weight:600;}
+  .month-card-head .month-days-left{font-size:11px;color:var(--ink-faint);}
+  .month-row-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);}
+  .month-row-item:first-child{border-top:none;padding-top:0;}
+  .month-row-item .swatch{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);flex-shrink:0;}
+  .month-row-item .mr-name{font-size:13px;flex:1;}
+  .mr-status{font-size:11.5px;display:flex;align-items:center;gap:5px;flex-shrink:0;}
+  .mr-status svg{width:14px;height:14px;flex-shrink:0;}
+  .mr-status.done{color:#6FA96A;}
+  .mr-status.pending{color:var(--ink-faint);}
+  .mr-status.neutral{color:var(--ink-faint);}
+  .mr-status.risk{color:var(--red);font-weight:600;}
+  .standing-summary{margin:0 0 18px;}
+  .standing-summary .headline{font-size:14px;color:var(--ink);margin-bottom:4px;font-weight:600;}
+  .standing-summary .sub{font-size:12px;color:var(--ink-faint);line-height:1.5;}
 
   .cat-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 14px;margin-bottom:10px;}
   .cat-card .cat-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
@@ -199,12 +203,6 @@
   .setup-error{font-size:12.5px;color:var(--red);margin-top:10px;display:none;}
   .setup-error.show{display:block;}
 
-  /* ---- warnings ---- */
-  .warning-banner{background:rgba(193,67,46,0.14);border:1px solid var(--red);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;display:flex;gap:10px;align-items:flex-start;}
-  .warning-banner svg{width:18px;height:18px;flex-shrink:0;color:var(--red);margin-top:1px;}
-  .warning-banner .w-body b{color:var(--ink);}
-  .warning-banner .w-body{color:var(--ink-dim);line-height:1.4;}
-
   /* ---- tier standing ---- */
   .standing-line{font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
 
@@ -287,22 +285,16 @@
 
   <main>
     <div class="view active" id="view-dashboard">
-      <div id="warningBanners"></div>
-      <div class="compass-card">
-        <div class="compass">
-          <svg viewBox="0 0 120 120">
-            <circle class="ring-bg" cx="60" cy="60" r="50"></circle>
-            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="50" stroke-dasharray="0 314"></circle>
-          </svg>
-          <div class="needle">
-            <div class="num" id="totalHoursNum">0</div>
-            <div class="unit">HOURS LOGGED</div>
-          </div>
+      <div class="month-card">
+        <div class="month-card-head">
+          <span class="month-label" id="monthLabel"></span>
+          <span class="month-days-left" id="monthDaysLeft"></span>
         </div>
-        <div class="compass-copy">
-          <div class="headline" id="dashHeadline">No hours logged yet</div>
-          <div class="sub" id="dashSub">Add your first log entry to start tracking toward Gold.</div>
-        </div>
+        <div id="monthChecklist"></div>
+      </div>
+      <div class="standing-summary">
+        <div class="headline" id="dashHeadline">No hours logged yet</div>
+        <div class="sub" id="dashSub">Add your first log entry to start tracking toward Gold.</div>
       </div>
       <div id="catCards"></div>
       <section class="dash-block">
@@ -487,15 +479,6 @@ function daysLeftInMonth(d){
   const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
   return last - d.getDate();
 }
-function categoryAtRisk(catKey){
-  if(monthsLoggedFor(catKey) >= 24) return false;
-  const now = new Date();
-  const ym = now.toISOString().slice(0,7);
-  const hoursThisMonth = logs.filter(l=>l.category===catKey && l.date && l.date.slice(0,7)===ym)
-    .reduce((s,l)=>s+Number(l.hours||0),0);
-  if(hoursThisMonth > 0) return false;
-  return daysLeftInMonth(now) <= 10;
-}
 let drawerOpen = {};
 
 let goals = [];
@@ -586,22 +569,36 @@ function renderAll(){
 }
 
 function renderDashboard(){
-  // ---- warnings ----
-  const atRisk = CATS.filter(c=>categoryAtRisk(c.key));
-  const wb = document.getElementById('warningBanners');
-  wb.innerHTML = atRisk.map(c=>`
-    <div class="warning-banner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.86L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.86a2 2 0 00-3.4 0z"/></svg>
-      <div class="w-body"><b>${c.name}</b> hasn't had any hours logged this month, and fewer than 10 days are left. Schedule something soon or this month won't count toward the 24-month requirement.</div>
-    </div>`).join('');
+  // ---- month checklist (replaces the old dial + warning banner) ----
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+  const daysLeft = daysLeftInMonth(now);
+  document.getElementById('monthLabel').textContent = now.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+  document.getElementById('monthDaysLeft').textContent = `${daysLeft} day${daysLeft===1?'':'s'} left`;
+  const checklist = document.getElementById('monthChecklist');
+  checklist.innerHTML = CATS.map(c=>{
+    const hrsThisMonth = logs.filter(l=>l.category===c.key && l.date && l.date.slice(0,7)===ym)
+      .reduce((s,l)=>s+Number(l.hours||0),0);
+    const monthsBanked = monthsLoggedFor(c.key);
+    let status;
+    if(hrsThisMonth > 0){
+      status = `<span class="mr-status done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>${fmt(hrsThisMonth)} hrs logged</span>`;
+    } else if(monthsBanked >= 24){
+      status = `<span class="mr-status neutral">24 months already banked</span>`;
+    } else if(daysLeft <= 10){
+      status = `<span class="mr-status risk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01M10.3 3.86L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.86a2 2 0 00-3.4 0z"/></svg>${daysLeft}d left, none yet</span>`;
+    } else {
+      status = `<span class="mr-status pending">Not yet this month</span>`;
+    }
+    return `<div class="month-row-item">
+      <span class="swatch" style="background:${c.color}"></span>
+      <span class="mr-name">${c.name}</span>
+      ${status}
+    </div>`;
+  }).join('');
 
-  // ---- overall compass: combined hours toward 800 (400+200+200) ----
+  // ---- overall standing (which tier is actually reached, and the bottleneck) ----
   const total = logs.reduce((s,l)=>s+Number(l.hours||0),0);
-  const combinedTarget = CATS.reduce((s,c)=>s+ultimateHours(c.key),0); // 800
-  document.getElementById('totalHoursNum').textContent = fmt(total);
-  const pct = Math.min(100, (total/combinedTarget)*100);
-  const circumference = 314;
-  document.getElementById('ringFg').setAttribute('stroke-dasharray', `${(pct/100*circumference).toFixed(1)} ${circumference}`);
 
   const headline = document.getElementById('dashHeadline');
   const sub = document.getElementById('dashSub');
