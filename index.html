@@ -157,8 +157,8 @@
 
   nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:2;background:rgba(16,26,20,0.92);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;justify-content:center;}
   nav.bottom .inner{max-width:480px;width:100%;display:flex;padding:9px 6px calc(9px + var(--safe-bottom));}
-  nav.bottom button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-faint);font-family:inherit;font-size:10.5px;padding:5px 0;}
-  nav.bottom button svg{width:21px;height:21px;}
+  nav.bottom button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-faint);font-family:inherit;font-size:9.5px;padding:5px 0;}
+  nav.bottom button svg{width:19px;height:19px;}
   nav.bottom button.active{color:var(--accent);}
 
   .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10;display:none;}
@@ -239,6 +239,20 @@
   .mini-goal .mg-sub{font-size:11px;color:var(--ink-faint);}
   .mini-goal .mg-bar{position:relative;height:6px;background:var(--surface);border-radius:3px;margin:6px 0 4px;overflow:hidden;}
   .mini-goal .mg-fill{position:absolute;top:0;left:0;bottom:0;border-radius:3px;}
+  .mini-goal .mg-validator{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--ink-faint);}
+  .mini-goal .mg-validator .mv-signed{color:#6FA96A;display:flex;align-items:center;gap:4px;}
+  .mini-goal .mg-validator .mv-signed svg{width:13px;height:13px;}
+  .link-btn{background:none;border:1px solid var(--line-strong);color:var(--ink-dim);border-radius:7px;padding:5px 10px;font-size:11px;font-family:inherit;}
+
+  .tier-status-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:10px;}
+  .tier-status-card .ts-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .tier-status-card .ts-title{font-size:14px;font-weight:600;}
+  .ts-hours-badge{font-size:10.5px;padding:3px 9px;border-radius:12px;}
+  .ts-hours-badge.met{background:rgba(111,169,106,0.2);color:#6FA96A;}
+  .ts-hours-badge.pending{background:var(--surface-2);color:var(--ink-faint);}
+  .ts-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:12.5px;}
+  .ts-row:first-of-type{border-top:none;margin-top:10px;}
+  .ts-request-btn{width:100%;margin-top:10px;}
 </style>
 </head>
 <body>
@@ -320,9 +334,32 @@
           Download .xlsx
         </button>
       </div>
+      <div class="export-card">
+        <h3>Submittable packet</h3>
+        <p>A goal-by-goal, month-by-month breakdown with Validator names attached — organized the way Submittable expects hours entered, to make copy-paste fast.</p>
+        <button class="btn-primary" id="exportPacketBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13m0 0l-4-4m4 4l4-4"/><path d="M4 20h16"/></svg>
+          Download packet .xlsx
+        </button>
+      </div>
       <div class="note-box">
         <strong style="color:var(--ink-dim)">Heads up:</strong> this app just tracks hours and goals privately — it doesn't submit anything to the Congressional Award office. Once your Advisor signs off, you'll still enter goals and hours yourself in Submittable, and any written reflections in your Record Book need to be in your own words.
       </div>
+    </div>
+
+    <div class="view" id="view-official">
+      <div class="export-card">
+        <h3>Advisor contact</h3>
+        <p>Saved once, used to pre-fill the review request emails below.</p>
+        <label>Advisor name</label>
+        <input type="text" id="advisorName" placeholder="e.g. Jordan Smith">
+        <label>Advisor email</label>
+        <input type="email" id="advisorEmail" placeholder="advisor@example.com">
+        <div class="sheet-actions" style="margin-top:14px;">
+          <button class="btn-primary btn-save" id="advisorSaveBtn">Save advisor</button>
+        </div>
+      </div>
+      <div id="tierStatusList"></div>
     </div>
   </main>
 
@@ -347,6 +384,10 @@
       <button class="nav-btn" data-view="export">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
         Export
+      </button>
+      <button class="nav-btn" data-view="official">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M9 4V2h6v2"/></svg>
+        Official
       </button>
     </div>
   </nav>
@@ -389,6 +430,10 @@
   <input type="date" id="goalDate">
   <label>Notes (optional)</label>
   <textarea id="goalNotes" placeholder="What's the plan for this goal?"></textarea>
+  <label>Validator name (optional)</label>
+  <input type="text" id="goalValidatorName" placeholder="Who confirms this goal is done?">
+  <label>Validator email (optional)</label>
+  <input type="email" id="goalValidatorEmail" placeholder="validator@example.com">
   <div class="sheet-actions">
     <button class="btn-ghost" id="goalCancel">Cancel</button>
     <button class="btn-primary btn-save" id="goalSave">Save goal</button>
@@ -455,6 +500,11 @@ let drawerOpen = {};
 
 let goals = [];
 let logs = [];
+let advisor = { name:'', email:'' };
+let tierStatus = TIERS_DEFAULT();
+function TIERS_DEFAULT(){
+  return [0,1,2,3,4,5].map(()=>({ advisorRequested:false, advisorSigned:false, submitted:false, approved:false }));
+}
 let currentView = 'dashboard';
 let logFilter = 'all';
 let goalFilter = 'all';
@@ -482,6 +532,8 @@ async function remoteLoad(){
   const record = data.record || {};
   goals = Array.isArray(record.goals) ? record.goals : [];
   logs = Array.isArray(record.logs) ? record.logs : [];
+  advisor = record.advisor && typeof record.advisor==='object' ? record.advisor : { name:'', email:'' };
+  tierStatus = Array.isArray(record.tierStatus) && record.tierStatus.length===6 ? record.tierStatus : TIERS_DEFAULT();
   setSyncDot('ok');
 }
 
@@ -493,7 +545,7 @@ async function remoteSave(){
     const res = await fetch(BIN_URL(), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify({ goals, logs })
+      body: JSON.stringify({ goals, logs, advisor, tierStatus })
     });
     if(!res.ok) throw new Error('save failed: ' + res.status);
     setSyncDot('ok');
@@ -519,6 +571,7 @@ async function loadData(){
 }
 function saveGoals(){ remoteSave(); }
 function saveLogs(){ remoteSave(); }
+function saveMeta(){ remoteSave(); }
 
 function showSetup(){ document.getElementById('setupScreen').style.display = 'flex'; }
 function hideSetup(){ document.getElementById('setupScreen').style.display = 'none'; }
@@ -529,7 +582,7 @@ function targetHoursFor(catKey){ return goals.filter(g=>g.category===catKey).red
 function fmt(n){ const r = Math.round(n*4)/4; return (r % 1 === 0) ? r.toString() : r.toFixed(2).replace(/0$/,''); }
 
 function renderAll(){
-  renderDashboard(); renderLogFilters(); renderLogList(); renderGoalFilters(); renderGoalList(); renderExport(); renderCatSelects();
+  renderDashboard(); renderLogFilters(); renderLogList(); renderGoalFilters(); renderGoalList(); renderExport(); renderCatSelects(); renderOfficial();
 }
 
 function renderDashboard(){
@@ -606,10 +659,27 @@ function renderDashboard(){
       : catGoals.map(g=>{
           const gh = logs.filter(l=>l.goalId===g.id).reduce((s,l)=>s+Number(l.hours||0),0);
           const gp = g.target>0 ? Math.min(100,(gh/g.target)*100) : 0;
+          const goalDone = g.target>0 && gh >= g.target;
+          let validatorBlock = '';
+          if(g.validatorEmail){
+            if(g.validatorSigned){
+              validatorBlock = `<div class="mg-validator"><span>${escapeHtml(g.validatorName||'Validator')}</span><span class="mv-signed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Signed</span></div>`;
+            } else if(goalDone){
+              validatorBlock = `<div class="mg-validator"><span>${escapeHtml(g.validatorName||'Validator')}</span>
+                <span style="display:flex;gap:6px;">
+                  ${g.validatorRequested?'<span>Requested</span>':''}
+                  <a class="link-btn" href="${buildValidatorMailto(g)}" data-request-goal="${g.id}" style="text-decoration:none;">${g.validatorRequested?'Re-send':'Request'}</a>
+                  <button class="link-btn" data-mark-signed="${g.id}">Mark signed</button>
+                </span></div>`;
+            } else {
+              validatorBlock = `<div class="mg-validator"><span>${escapeHtml(g.validatorName||'Validator')}</span><span>Not at target yet</span></div>`;
+            }
+          }
           return `<div class="mini-goal">
             <div class="mg-top"><span>${escapeHtml(g.title)}</span><span>${fmt(gh)}${g.target?` / ${fmt(g.target)}`:''}h</span></div>
             <div class="mg-bar"><div class="mg-fill" style="width:${gp}%;background:${c.color}"></div></div>
             ${g.date?`<div class="mg-sub">Target date: ${niceDate(g.date)}</div>`:''}
+            ${validatorBlock}
           </div>`;
         }).join('');
 
@@ -645,6 +715,14 @@ function renderDashboard(){
     drawerOpen[k] = !drawerOpen[k];
     renderDashboard();
   });
+  catCards.querySelectorAll('[data-request-goal]').forEach(a=>a.addEventListener('click', ()=>{
+    const g = goals.find(g=>g.id===a.dataset.requestGoal);
+    if(g && !g.validatorRequested){ g.validatorRequested = true; saveGoals(); }
+  }));
+  catCards.querySelectorAll('[data-mark-signed]').forEach(b=>b.onclick=()=>{
+    const g = goals.find(g=>g.id===b.dataset.markSigned);
+    if(g){ g.validatorSigned = true; saveGoals(); renderAll(); }
+  });
 
   const recent = [...logs].sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,5);
   const recentList = document.getElementById('recentList');
@@ -663,6 +741,84 @@ function renderDashboard(){
     }).join('');
   }
 }
+
+function buildValidatorMailto(g){
+  const c = catByKey(g.category);
+  const entries = logs.filter(l=>l.goalId===g.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const hrs = entries.reduce((s,l)=>s+Number(l.hours||0),0);
+  const lines = entries.map(l=>`- ${niceDate(l.date)}: ${fmt(l.hours)} hrs — ${l.desc||'(no description)'}`).join('\n');
+  const subject = `Validation request — Carson Illig, Congressional Award — ${g.title}`;
+  const body = `Hi ${g.validatorName||''},\n\nI've reached my target for this Congressional Award goal and wanted to give you a heads-up before requesting your official sign-off.\n\nCategory: ${c.name}\nGoal: ${g.title}\nTotal hours: ${fmt(hrs)}${g.target?` / ${fmt(g.target)} target`:''}\n\nActivity log:\n${lines || '(no entries logged yet)'}\n\nYou'll also get a separate, official request directly from Submittable (the Congressional Award's system) asking you to digitally validate this activity and sign my Record Book — that's the one that actually counts, so please keep an eye out for it. This email is just to give you the details ahead of time.\n\nThanks so much for your help,\nCarson`;
+  return `mailto:${encodeURIComponent(g.validatorEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function buildAdvisorMailto(tierIdx){
+  const tier = TIERS[tierIdx];
+  const lines = CATS.map(c=>{
+    const hrs = totalHoursFor(c.key);
+    const months = monthsLoggedFor(c.key);
+    return `- ${c.name}: ${fmt(hrs)} / ${fmt(TIER_HOURS[c.key][tierIdx])} hrs, ${months} / ${tier.months} months`;
+  }).join('\n');
+  const subject = `Advisor review request — Carson Illig — ${tier.label}`;
+  const body = `Hi ${advisor.name||''},\n\nI believe I've met the hour and month requirements for the ${tier.label} level of the Congressional Award and wanted to give you a heads-up before submitting.\n\n${lines}\n\nI'll be submitting my Record Book through Submittable, which will send you a separate, official request to review and digitally sign off — that's the one that actually counts, so please keep an eye out for it. This email is just to flag it's coming and share where things stand.\n\nLet me know if you'd like to go over anything before I submit.\n\nThanks,\nCarson`;
+  return `mailto:${encodeURIComponent(advisor.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function renderOfficial(){
+  document.getElementById('advisorName').value = advisor.name || '';
+  document.getElementById('advisorEmail').value = advisor.email || '';
+
+  const list = document.getElementById('tierStatusList');
+  list.innerHTML = TIERS.map((t,i)=>{
+    const hoursMet = CATS.every(c=>currentTierIndex(c.key) >= i);
+    const st = tierStatus[i] || {};
+    const canRequestAdvisor = hoursMet && advisor.email;
+    return `<div class="tier-status-card">
+      <div class="ts-top">
+        <span class="ts-title">${t.label}</span>
+        <span class="ts-hours-badge ${hoursMet?'met':'pending'}">${hoursMet?'Hours & months met':'Not yet'}</span>
+      </div>
+      <div class="ts-row" style="border-top:none;margin-top:8px;">
+        <span>Advisor requested</span>
+        <label class="switch"><input type="checkbox" data-tier="${i}" data-field="advisorRequested" ${st.advisorRequested?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="ts-row">
+        <span>Advisor signed</span>
+        <label class="switch"><input type="checkbox" data-tier="${i}" data-field="advisorSigned" ${st.advisorSigned?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="ts-row">
+        <span>Submitted to Submittable</span>
+        <label class="switch"><input type="checkbox" data-tier="${i}" data-field="submitted" ${st.submitted?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="ts-row">
+        <span>Approved by program</span>
+        <label class="switch"><input type="checkbox" data-tier="${i}" data-field="approved" ${st.approved?'checked':''}><span class="slider"></span></label>
+      </div>
+      ${canRequestAdvisor ? `<a class="btn-primary ts-request-btn" style="text-decoration:none;display:flex;" href="${buildAdvisorMailto(i)}" data-advisor-request="${i}">Request Advisor review</a>` : ''}
+      ${hoursMet && !advisor.email ? `<div class="empty-note" style="margin-top:10px;">Add your Advisor's email above to enable the request button.</div>` : ''}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('input[type=checkbox][data-tier]').forEach(cb=>{
+    cb.onchange = ()=>{
+      const i = parseInt(cb.dataset.tier,10);
+      tierStatus[i] = tierStatus[i] || {};
+      tierStatus[i][cb.dataset.field] = cb.checked;
+      saveMeta();
+    };
+  });
+  list.querySelectorAll('[data-advisor-request]').forEach(a=>a.addEventListener('click', ()=>{
+    const i = parseInt(a.dataset.advisorRequest,10);
+    if(!tierStatus[i].advisorRequested){ tierStatus[i].advisorRequested = true; saveMeta(); renderOfficial(); }
+  }));
+}
+document.getElementById('advisorSaveBtn').onclick = ()=>{
+  advisor.name = document.getElementById('advisorName').value.trim();
+  advisor.email = document.getElementById('advisorEmail').value.trim();
+  saveMeta();
+  renderOfficial();
+  alert('Advisor contact saved.');
+};
 
 function emptyState(title,sub,iconPath){
   return `<div class="empty-state">
@@ -853,6 +1009,8 @@ function openGoalSheet(id){
   document.getElementById('goalTarget').value = g ? g.target : '';
   document.getElementById('goalDate').value = g ? (g.date||'') : '';
   document.getElementById('goalNotes').value = g ? (g.notes||'') : '';
+  document.getElementById('goalValidatorName').value = g ? (g.validatorName||'') : '';
+  document.getElementById('goalValidatorEmail').value = g ? (g.validatorEmail||'') : '';
   document.querySelector('#goalSheet h3').textContent = g ? 'Edit goal' : 'New goal';
   openSheet(goalSheet);
 }
@@ -862,12 +1020,17 @@ document.getElementById('goalSave').onclick = ()=>{
   const title = document.getElementById('goalTitle').value.trim();
   if(!category){ alert('Pick a category.'); return; }
   if(!title){ alert('Give the goal a title.'); return; }
+  const existing = editingGoalId ? goals.find(g=>g.id===editingGoalId) : null;
   const data = {
     id: editingGoalId || uid(),
     category, title,
     target: parseFloat(document.getElementById('goalTarget').value) || 0,
     date: document.getElementById('goalDate').value || '',
     notes: document.getElementById('goalNotes').value.trim(),
+    validatorName: document.getElementById('goalValidatorName').value.trim(),
+    validatorEmail: document.getElementById('goalValidatorEmail').value.trim(),
+    validatorRequested: existing ? !!existing.validatorRequested : false,
+    validatorSigned: existing ? !!existing.validatorSigned : false,
   };
   if(editingGoalId){ goals = goals.map(g=>g.id===editingGoalId?data:g); } else { goals.push(data); }
   saveGoals(); renderAll(); closeSheets();
@@ -880,6 +1043,50 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
     document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+currentView));
   };
 });
+
+document.getElementById('exportPacketBtn').onclick = ()=>{
+  try{
+    const rows = [['Category','Goal','Validator','Validator Email','Month','Hours This Month','Cumulative Hours','Target Hours','Validator Signed']];
+    CATS.forEach(c=>{
+      const catGoals = goals.filter(g=>g.category===c.key);
+      catGoals.forEach(g=>{
+        const entries = logs.filter(l=>l.goalId===g.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const monthMap = {};
+        entries.forEach(l=>{
+          const ym = (l.date||'').slice(0,7);
+          monthMap[ym] = (monthMap[ym]||0) + Number(l.hours||0);
+        });
+        let cum = 0;
+        const months = Object.keys(monthMap).sort();
+        if(months.length===0){
+          rows.push([c.name, g.title, g.validatorName||'', g.validatorEmail||'', '', 0, 0, g.target||'', g.validatorSigned?'Yes':'No']);
+        } else {
+          months.forEach(m=>{
+            cum += monthMap[m];
+            rows.push([c.name, g.title, g.validatorName||'', g.validatorEmail||'', m, monthMap[m], cum, g.target||'', g.validatorSigned?'Yes':'No']);
+          });
+        }
+      });
+      const unassigned = logs.filter(l=>l.category===c.key && !l.goalId);
+      if(unassigned.length){
+        const monthMap = {};
+        unassigned.forEach(l=>{ const ym=(l.date||'').slice(0,7); monthMap[ym]=(monthMap[ym]||0)+Number(l.hours||0); });
+        let cum=0;
+        Object.keys(monthMap).sort().forEach(m=>{
+          cum += monthMap[m];
+          rows.push([c.name, '(no goal assigned)', '', '', m, monthMap[m], cum, '', '']);
+        });
+      }
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Submittable Packet');
+    const dateStr = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `Carson_Submittable_Packet_${dateStr}.xlsx`);
+  }catch(e){
+    console.error(e);
+    alert('Export failed. Try again — if it keeps happening, this device/browser may not support downloads from this app.');
+  }
+};
 
 document.getElementById('exportBtn').onclick = ()=>{
   try{
