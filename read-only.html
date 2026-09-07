@@ -535,6 +535,12 @@ function hideSetup(){ document.getElementById('setupScreen').style.display = 'no
 document.getElementById('setupRetry').onclick = loadData;
 
 function totalHoursFor(catKey){ return logs.filter(l=>l.category===catKey).reduce((s,l)=>s+Number(l.hours||0),0); }
+function reflectionStatus(g){
+  const keys = g.category==='service' ? ['activities','learned','community'] : ['activities','learned'];
+  const r = g.reflection || {};
+  const filled = keys.filter(k=>r[k] && r[k].trim()).length;
+  return { filled, total: keys.length };
+}
 function indirectStatsFor(catKey){
   const catLogs = logs.filter(l=>l.category===catKey);
   const total = catLogs.reduce((s,l)=>s+Number(l.hours||0),0);
