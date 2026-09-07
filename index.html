@@ -355,10 +355,9 @@
       </div>
       <div class="export-card">
         <h3>Activity Start Date</h3>
-        <p>Hours logged before this date don't count toward the Award — set it once you know your official registration date.</p>
-        <input type="date" id="activityStartDateInput" class="input-narrow">
-        <div class="sheet-actions" style="margin-top:14px;">
-          <button class="btn-primary btn-save" id="activityStartDateSaveBtn">Save date</button>
+        <p>Hours logged before this date don't count toward the Award.</p>
+        <div class="advisor-locked">
+          <div class="al-name" id="activityStartDateDisplay"></div>
         </div>
       </div>
       <div id="tierStatusList"></div>
@@ -518,7 +517,8 @@ let logs = [];
 // Carson's Advisor — set permanently, not editable from the app.
 const ADVISOR = { name: 'Matthew Tower', email: 'Matthew.tower@gmail.com' };
 let tierStatus = TIERS_DEFAULT();
-let activityStartDate = '';
+// Carson's official Activity Start Date — set permanently, not editable from the app.
+const ACTIVITY_START_DATE = '2026-09-06';
 function TIERS_DEFAULT(){
   return [0,1,2,3,4,5].map(()=>({ advisorRequested:false, advisorSigned:false, submitted:false, approved:false }));
 }
@@ -550,7 +550,6 @@ async function remoteLoad(){
   goals = Array.isArray(record.goals) ? record.goals : [];
   logs = Array.isArray(record.logs) ? record.logs : [];
   tierStatus = Array.isArray(record.tierStatus) && record.tierStatus.length===6 ? record.tierStatus : TIERS_DEFAULT();
-  activityStartDate = typeof record.activityStartDate === 'string' ? record.activityStartDate : '';
   setSyncDot('ok');
 }
 
@@ -562,7 +561,7 @@ async function remoteSave(){
     const res = await fetch(BIN_URL(), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify({ goals, logs, tierStatus, activityStartDate })
+      body: JSON.stringify({ goals, logs, tierStatus })
     });
     if(!res.ok) throw new Error('save failed: ' + res.status);
     setSyncDot('ok');
@@ -807,7 +806,7 @@ function buildAdvisorMailto(tierIdx){
 function renderOfficial(){
   document.getElementById('advisorDisplayName').textContent = ADVISOR.name;
   document.getElementById('advisorDisplayEmail').textContent = ADVISOR.email;
-  document.getElementById('activityStartDateInput').value = activityStartDate || '';
+  document.getElementById('activityStartDateDisplay').textContent = niceDate(ACTIVITY_START_DATE);
 
   const list = document.getElementById('tierStatusList');
   list.innerHTML = TIERS.map((t,i)=>{
@@ -851,12 +850,6 @@ function renderOfficial(){
     if(!tierStatus[i].advisorRequested){ tierStatus[i].advisorRequested = true; saveMeta(); renderOfficial(); }
   }));
 }
-document.getElementById('activityStartDateSaveBtn').onclick = ()=>{
-  activityStartDate = document.getElementById('activityStartDateInput').value || '';
-  saveMeta();
-  alert(activityStartDate ? `Activity Start Date set to ${niceDate(activityStartDate)}.` : 'Activity Start Date cleared.');
-};
-
 function emptyState(title,sub,iconPath){
   return `<div class="empty-state">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="${iconPath||'M4 20l4-1 10-10-3-3L5 16z'}"/></svg>
@@ -1037,8 +1030,8 @@ document.getElementById('logSave').onclick = ()=>{
   if(!category){ alert('Pick a category.'); return; }
   if(!hours || hours<=0){ alert('Enter hours greater than 0.'); return; }
   const entryDate = document.getElementById('logDate').value || localDateStr(new Date());
-  if(activityStartDate && entryDate < activityStartDate){
-    const proceed = confirm(`This date (${niceDate(entryDate)}) is before your Activity Start Date (${niceDate(activityStartDate)}). These hours won't count toward your Congressional Award. Log it anyway just for your own tracking?`);
+  if(entryDate < ACTIVITY_START_DATE){
+    const proceed = confirm(`This date (${niceDate(entryDate)}) is before your Activity Start Date (${niceDate(ACTIVITY_START_DATE)}). These hours won't count toward your Congressional Award. Log it anyway just for your own tracking?`);
     if(!proceed) return;
   }
   const data = {
