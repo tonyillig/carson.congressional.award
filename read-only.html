@@ -509,19 +509,28 @@ async function remoteSave(){
 async function loadData(){
   try{
     await remoteLoad();
+  }catch(e){
+    console.error('remoteLoad failed:', e);
+    setSyncDot('err');
+    showSetup(`Network error reaching the database: ${e.message}`);
+    return;
+  }
+  try{
     hideSetup();
     renderAll();
   }catch(e){
-    console.error(e);
-    setSyncDot('err');
-    showSetup();
+    console.error('renderAll failed (data loaded fine, this is a display bug):', e);
+    showSetup(`Data loaded fine, but the app hit a bug displaying it: ${e.message}. This is a bug in the app, not your connection — screenshot this and send it over.`);
   }
 }
 function saveGoals(){ remoteSave(); }
 function saveLogs(){ remoteSave(); }
 function saveMeta(){ remoteSave(); }
 
-function showSetup(){ document.getElementById('setupScreen').style.display = 'flex'; }
+function showSetup(msg){
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('setupErrorMsg').textContent = msg || "Something went wrong loading Carson's data. Check your internet connection and try again.";
+}
 function hideSetup(){ document.getElementById('setupScreen').style.display = 'none'; }
 document.getElementById('setupRetry').onclick = loadData;
 
