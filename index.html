@@ -252,6 +252,9 @@
   .ts-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:12.5px;}
   .ts-row:first-of-type{border-top:none;margin-top:10px;}
   .ts-request-btn{width:100%;margin-top:10px;}
+  .advisor-locked{background:var(--surface-2);border-radius:9px;padding:12px 14px;}
+  .advisor-locked .al-name{font-size:14px;font-weight:600;}
+  .advisor-locked .al-email{font-size:12px;color:var(--ink-faint);margin-top:2px;}
 </style>
 </head>
 <body>
@@ -329,7 +332,7 @@
       </div>
       <div class="export-card">
         <h3>Submittable packet</h3>
-        <p>A goal-by-goal, month-by-month breakdown with Validator names attached — organized the way Submittable expects hours entered, to make copy-paste fast.</p>
+        <p>A goal-by-goal, month-by-month breakdown with Validator names attached, plus a Reflections tab with the Workbook's written answers — organized to make copy-paste into Submittable fast.</p>
         <button class="btn-primary" id="exportPacketBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v13m0 0l-4-4m4 4l4-4"/><path d="M4 20h16"/></svg>
           Download packet .xlsx
@@ -342,14 +345,11 @@
 
     <div class="view" id="view-official">
       <div class="export-card">
-        <h3>Advisor contact</h3>
-        <p>Saved once, used to pre-fill the review request emails below.</p>
-        <label>Advisor name</label>
-        <input type="text" id="advisorName" placeholder="e.g. Jordan Smith">
-        <label>Advisor email</label>
-        <input type="email" id="advisorEmail" placeholder="advisor@example.com">
-        <div class="sheet-actions" style="margin-top:14px;">
-          <button class="btn-primary btn-save" id="advisorSaveBtn">Save advisor</button>
+        <h3>Advisor</h3>
+        <p>Set once and locked in — Carson's Advisor for this Award.</p>
+        <div class="advisor-locked">
+          <div class="al-name" id="advisorDisplayName"></div>
+          <div class="al-email" id="advisorDisplayEmail"></div>
         </div>
       </div>
       <div id="tierStatusList"></div>
@@ -423,6 +423,14 @@
   <input type="date" id="goalDate" class="input-narrow">
   <label>Notes (optional)</label>
   <textarea id="goalNotes" placeholder="What's the plan for this goal?"></textarea>
+  <label>Describe your activities to achieve your goal <span style="color:var(--ink-faint)">(optional)</span></label>
+  <textarea id="goalReflActivities" placeholder="What did you actually do?"></textarea>
+  <label>Describe how you improved and/or what you learned <span style="color:var(--ink-faint)">(optional)</span></label>
+  <textarea id="goalReflLearned" placeholder="What did you learn or improve at?"></textarea>
+  <div id="goalReflCommunityWrap">
+    <label>How did you serve the greater community at large? <span style="color:var(--ink-faint)">(optional, Service goals only)</span></label>
+    <textarea id="goalReflCommunity" placeholder="How did this benefit the broader community?"></textarea>
+  </div>
   <label>Validator name (optional)</label>
   <input type="text" id="goalValidatorName" placeholder="Who confirms this goal is done?">
   <label>Validator email (optional)</label>
@@ -491,7 +499,8 @@ let drawerOpen = {};
 
 let goals = [];
 let logs = [];
-let advisor = { name:'', email:'' };
+// Carson's Advisor — set permanently, not editable from the app.
+const ADVISOR = { name: 'Matthew Tower', email: 'Matthew.tower@gmail.com' };
 let tierStatus = TIERS_DEFAULT();
 function TIERS_DEFAULT(){
   return [0,1,2,3,4,5].map(()=>({ advisorRequested:false, advisorSigned:false, submitted:false, approved:false }));
@@ -523,7 +532,6 @@ async function remoteLoad(){
   const record = data.record || {};
   goals = Array.isArray(record.goals) ? record.goals : [];
   logs = Array.isArray(record.logs) ? record.logs : [];
-  advisor = record.advisor && typeof record.advisor==='object' ? record.advisor : { name:'', email:'' };
   tierStatus = Array.isArray(record.tierStatus) && record.tierStatus.length===6 ? record.tierStatus : TIERS_DEFAULT();
   setSyncDot('ok');
 }
@@ -536,7 +544,7 @@ async function remoteSave(){
     const res = await fetch(BIN_URL(), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify({ goals, logs, advisor, tierStatus })
+      body: JSON.stringify({ goals, logs, tierStatus })
     });
     if(!res.ok) throw new Error('save failed: ' + res.status);
     setSyncDot('ok');
@@ -684,6 +692,7 @@ function renderDashboard(){
             <div class="mg-top"><span>${escapeHtml(g.title)}</span><span>${fmt(gh)}${g.target?` / ${fmt(g.target)}`:''}h</span></div>
             <div class="mg-bar"><div class="mg-fill" style="width:${gp}%;background:${c.color}"></div></div>
             ${g.date?`<div class="mg-sub">Target date: ${niceDate(g.date)}</div>`:''}
+            <div class="mg-sub">Reflection: ${reflectionStatus(g).filled}/${reflectionStatus(g).total} answered</div>
             ${validatorBlock}
           </div>`;
         }).join('');
@@ -765,19 +774,18 @@ function buildAdvisorMailto(tierIdx){
     return `- ${c.name}: ${fmt(hrs)} / ${fmt(TIER_HOURS[c.key][tierIdx])} hrs, ${months} / ${tier.months} months`;
   }).join('\n');
   const subject = `Advisor review request — Carson Illig — ${tier.label}`;
-  const body = `Hi ${advisor.name||''},\n\nI believe I've met the hour and month requirements for the ${tier.label} level of the Congressional Award and wanted to give you a heads-up before submitting.\n\n${lines}\n\nI'll be submitting my Record Book through Submittable, which will send you a separate, official request to review and digitally sign off — that's the one that actually counts, so please keep an eye out for it. This email is just to flag it's coming and share where things stand.\n\nLet me know if you'd like to go over anything before I submit.\n\nThanks,\nCarson`;
-  return `mailto:${encodeURIComponent(advisor.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const body = `Hi ${ADVISOR.name||''},\n\nI believe I've met the hour and month requirements for the ${tier.label} level of the Congressional Award and wanted to give you a heads-up before submitting.\n\n${lines}\n\nI'll be submitting my Record Book through Submittable, which will send you a separate, official request to review and digitally sign off — that's the one that actually counts, so please keep an eye out for it. This email is just to flag it's coming and share where things stand.\n\nLet me know if you'd like to go over anything before I submit.\n\nThanks,\nCarson`;
+  return `mailto:${encodeURIComponent(ADVISOR.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function renderOfficial(){
-  document.getElementById('advisorName').value = advisor.name || '';
-  document.getElementById('advisorEmail').value = advisor.email || '';
+  document.getElementById('advisorDisplayName').textContent = ADVISOR.name;
+  document.getElementById('advisorDisplayEmail').textContent = ADVISOR.email;
 
   const list = document.getElementById('tierStatusList');
   list.innerHTML = TIERS.map((t,i)=>{
     const hoursMet = CATS.every(c=>currentTierIndex(c.key) >= i);
     const st = tierStatus[i] || {};
-    const canRequestAdvisor = hoursMet && advisor.email;
     return `<div class="tier-status-card">
       <div class="ts-top">
         <span class="ts-title">${t.label}</span>
@@ -799,8 +807,7 @@ function renderOfficial(){
         <span>Approved by program</span>
         <label class="switch"><input type="checkbox" data-tier="${i}" data-field="approved" ${st.approved?'checked':''}><span class="slider"></span></label>
       </div>
-      ${canRequestAdvisor ? `<a class="btn-primary ts-request-btn" style="text-decoration:none;display:flex;" href="${buildAdvisorMailto(i)}" data-advisor-request="${i}">Request Advisor review</a>` : ''}
-      ${hoursMet && !advisor.email ? `<div class="empty-note" style="margin-top:10px;">Add your Advisor's email above to enable the request button.</div>` : ''}
+      ${hoursMet ? `<a class="btn-primary ts-request-btn" style="text-decoration:none;display:flex;" href="${buildAdvisorMailto(i)}" data-advisor-request="${i}">Request Advisor review</a>` : ''}
     </div>`;
   }).join('');
 
@@ -817,14 +824,6 @@ function renderOfficial(){
     if(!tierStatus[i].advisorRequested){ tierStatus[i].advisorRequested = true; saveMeta(); renderOfficial(); }
   }));
 }
-document.getElementById('advisorSaveBtn').onclick = ()=>{
-  advisor.name = document.getElementById('advisorName').value.trim();
-  advisor.email = document.getElementById('advisorEmail').value.trim();
-  saveMeta();
-  renderOfficial();
-  alert('Advisor contact saved.');
-};
-
 function emptyState(title,sub,iconPath){
   return `<div class="empty-state">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="${iconPath||'M4 20l4-1 10-10-3-3L5 16z'}"/></svg>
@@ -906,6 +905,7 @@ function renderGoalList(){
         <svg class="flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 5h13l-2.5 3L18 11H5"/></svg>
       </div>
       <div class="g-progress-row"><span>${fmt(hrs)} hrs logged</span><span>${g.target?`target ${fmt(g.target)}`:'no target set'}</span></div>
+      <div class="g-progress-row" style="margin-top:4px;"><span>Reflection: ${reflectionStatus(g).filled}/${reflectionStatus(g).total} answered</span></div>
       <div class="le-actions">
         <button data-edit="${g.id}">Edit</button>
         <button data-del="${g.id}">Delete</button>
@@ -942,6 +942,7 @@ function renderCatSelects(){
         el.querySelectorAll('.cat-chip').forEach(o=>o.classList.remove('picked'));
         opt.classList.add('picked');
         if(id==='logCatSelect') populateGoalSelect(opt.dataset.key);
+        if(id==='goalCatSelect') toggleCommunityField(opt.dataset.key);
       });
     });
   });
@@ -958,10 +959,19 @@ function getPickedCat(selectId){
   const checked = document.getElementById(selectId).querySelector('input:checked');
   return checked ? checked.value : null;
 }
+function reflectionStatus(g){
+  const keys = g.category==='service' ? ['activities','learned','community'] : ['activities','learned'];
+  const r = g.reflection || {};
+  const filled = keys.filter(k=>r[k] && r[k].trim()).length;
+  return { filled, total: keys.length };
+}
 function populateGoalSelect(catKey){
   const sel = document.getElementById('logGoalSelect');
   const opts = goals.filter(g=>g.category===catKey);
   sel.innerHTML = '<option value="">— none —</option>' + opts.map(g=>`<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('');
+}
+function toggleCommunityField(catKey){
+  document.getElementById('goalReflCommunityWrap').style.display = catKey==='service' ? 'block' : 'none';
 }
 
 const overlay = document.getElementById('overlay');
@@ -1010,13 +1020,19 @@ document.getElementById('logSave').onclick = ()=>{
 function openGoalSheet(id){
   editingGoalId = id || null;
   const g = id ? goals.find(g=>g.id===id) : null;
-  pickCat('goalCatSelect', g ? g.category : (goalFilter!=='all'?goalFilter:CATS[0].key));
+  const cat = g ? g.category : (goalFilter!=='all'?goalFilter:CATS[0].key);
+  pickCat('goalCatSelect', cat);
+  toggleCommunityField(cat);
   document.getElementById('goalTitle').value = g ? g.title : '';
   document.getElementById('goalTarget').value = g ? g.target : '';
   document.getElementById('goalDate').value = g ? (g.date||'') : '';
   document.getElementById('goalNotes').value = g ? (g.notes||'') : '';
   document.getElementById('goalValidatorName').value = g ? (g.validatorName||'') : '';
   document.getElementById('goalValidatorEmail').value = g ? (g.validatorEmail||'') : '';
+  const refl = g ? (g.reflection||{}) : {};
+  document.getElementById('goalReflActivities').value = refl.activities || '';
+  document.getElementById('goalReflLearned').value = refl.learned || '';
+  document.getElementById('goalReflCommunity').value = refl.community || '';
   document.querySelector('#goalSheet h3').textContent = g ? 'Edit goal' : 'New goal';
   openSheet(goalSheet);
 }
@@ -1037,6 +1053,11 @@ document.getElementById('goalSave').onclick = ()=>{
     validatorEmail: document.getElementById('goalValidatorEmail').value.trim(),
     validatorRequested: existing ? !!existing.validatorRequested : false,
     validatorSigned: existing ? !!existing.validatorSigned : false,
+    reflection: {
+      activities: document.getElementById('goalReflActivities').value.trim(),
+      learned: document.getElementById('goalReflLearned').value.trim(),
+      community: category==='service' ? document.getElementById('goalReflCommunity').value.trim() : '',
+    },
   };
   if(editingGoalId){ goals = goals.map(g=>g.id===editingGoalId?data:g); } else { goals.push(data); }
   saveGoals(); renderAll(); closeSheets();
@@ -1086,6 +1107,15 @@ document.getElementById('exportPacketBtn').onclick = ()=>{
     });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Submittable Packet');
+
+    const reflRows = [['Category','Goal','Activities','What Learned','Community Service (Service only)','Validator','Validator Email','Validator Signed']];
+    CATS.forEach(c=>{
+      goals.filter(g=>g.category===c.key).forEach(g=>{
+        const r = g.reflection || {};
+        reflRows.push([c.name, g.title, r.activities||'', r.learned||'', r.community||'', g.validatorName||'', g.validatorEmail||'', g.validatorSigned?'Yes':'No']);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(reflRows), 'Reflections');
     const dateStr = new Date().toISOString().slice(0,10);
     XLSX.writeFile(wb, `Carson_Submittable_Packet_${dateStr}.xlsx`);
   }catch(e){
@@ -1105,11 +1135,12 @@ document.getElementById('exportBtn').onclick = ()=>{
       })
     ];
     const goalSheetData = [
-      ['Category','Goal','Target Hours','Hours Logged','Target Date','Notes'],
+      ['Category','Goal','Target Hours','Hours Logged','Target Date','Notes','Activities (reflection)','What Learned (reflection)','Community Service (reflection, Service only)'],
       ...goals.map(g=>{
         const hrs = logs.filter(l=>l.goalId===g.id).reduce((s,l)=>s+Number(l.hours||0),0);
         const c = catByKey(g.category);
-        return [c.name, g.title, g.target||'', hrs, g.date||'', g.notes||''];
+        const r = g.reflection || {};
+        return [c.name, g.title, g.target||'', hrs, g.date||'', g.notes||'', r.activities||'', r.learned||'', r.community||''];
       })
     ];
     const summaryData = [
