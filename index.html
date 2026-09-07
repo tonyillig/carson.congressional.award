@@ -217,6 +217,7 @@
   .trail .end-flag{position:absolute;top:-4px;right:-2px;width:13px;height:13px;color:var(--ink-faint);}
 
   .month-row{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint);margin-top:2px;}
+  .month-row.indirect-row.over{color:var(--red);font-weight:600;}
 
   /* ---- drawer ---- */
   .drawer-toggle{width:100%;background:none;border:none;color:var(--ink-faint);font-size:11.5px;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 0 0;font-family:inherit;margin-top:2px;}
@@ -350,6 +351,14 @@
         <div class="advisor-locked">
           <div class="al-name" id="advisorDisplayName"></div>
           <div class="al-email" id="advisorDisplayEmail"></div>
+        </div>
+      </div>
+      <div class="export-card">
+        <h3>Activity Start Date</h3>
+        <p>Hours logged before this date don't count toward the Award — set it once you know your official registration date.</p>
+        <input type="date" id="activityStartDateInput" class="input-narrow">
+        <div class="sheet-actions" style="margin-top:14px;">
+          <button class="btn-primary btn-save" id="activityStartDateSaveBtn">Save date</button>
         </div>
       </div>
       <div id="tierStatusList"></div>
@@ -495,6 +504,13 @@ function daysLeftInMonth(d){
   const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
   return last - d.getDate();
 }
+function localDateStr(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function localYearMonth(d){ return localDateStr(d).slice(0,7); }
 let drawerOpen = {};
 
 let goals = [];
@@ -502,6 +518,7 @@ let logs = [];
 // Carson's Advisor — set permanently, not editable from the app.
 const ADVISOR = { name: 'Matthew Tower', email: 'Matthew.tower@gmail.com' };
 let tierStatus = TIERS_DEFAULT();
+let activityStartDate = '';
 function TIERS_DEFAULT(){
   return [0,1,2,3,4,5].map(()=>({ advisorRequested:false, advisorSigned:false, submitted:false, approved:false }));
 }
@@ -533,6 +550,7 @@ async function remoteLoad(){
   goals = Array.isArray(record.goals) ? record.goals : [];
   logs = Array.isArray(record.logs) ? record.logs : [];
   tierStatus = Array.isArray(record.tierStatus) && record.tierStatus.length===6 ? record.tierStatus : TIERS_DEFAULT();
+  activityStartDate = typeof record.activityStartDate === 'string' ? record.activityStartDate : '';
   setSyncDot('ok');
 }
 
@@ -544,7 +562,7 @@ async function remoteSave(){
     const res = await fetch(BIN_URL(), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-      body: JSON.stringify({ goals, logs, tierStatus })
+      body: JSON.stringify({ goals, logs, tierStatus, activityStartDate })
     });
     if(!res.ok) throw new Error('save failed: ' + res.status);
     setSyncDot('ok');
@@ -577,6 +595,13 @@ function hideSetup(){ document.getElementById('setupScreen').style.display = 'no
 document.getElementById('setupRetry').onclick = loadData;
 
 function totalHoursFor(catKey){ return logs.filter(l=>l.category===catKey).reduce((s,l)=>s+Number(l.hours||0),0); }
+function indirectStatsFor(catKey){
+  const catLogs = logs.filter(l=>l.category===catKey);
+  const total = catLogs.reduce((s,l)=>s+Number(l.hours||0),0);
+  const indirect = catLogs.filter(l=>l.indirect).reduce((s,l)=>s+Number(l.hours||0),0);
+  const pct = total>0 ? (indirect/total)*100 : 0;
+  return { indirect, total, pct };
+}
 function targetHoursFor(catKey){ return goals.filter(g=>g.category===catKey).reduce((s,g)=>s+Number(g.target||0),0); }
 function fmt(n){ const r = Math.round(n*4)/4; return (r % 1 === 0) ? r.toString() : r.toFixed(2).replace(/0$/,''); }
 
@@ -587,7 +612,7 @@ function renderAll(){
 function renderDashboard(){
   // ---- month checklist (replaces the old dial + warning banner) ----
   const now = new Date();
-  const ym = now.toISOString().slice(0,7);
+  const ym = localYearMonth(now);
   const daysLeft = daysLeftInMonth(now);
   document.getElementById('monthLabel').textContent = now.toLocaleDateString('en-US', {month:'long', year:'numeric'});
   document.getElementById('monthDaysLeft').textContent = `${daysLeft} day${daysLeft===1?'':'s'} left`;
@@ -712,6 +737,7 @@ function renderDashboard(){
         <svg class="end-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 5h13l-2.5 3L18 11H5"/></svg>
       </div>
       <div class="month-row"><span>${months} / 24 months with activity</span><span>${catGoals.length} goal${catGoals.length===1?'':'s'}</span></div>
+      ${c.key==='service' ? (()=>{ const ind = indirectStatsFor('service'); return ind.total>0 ? `<div class="month-row indirect-row ${ind.pct>25?'over':''}"><span>Indirect: ${fmt(ind.indirect)} / ${fmt(ind.total)} hrs (${ind.pct.toFixed(0)}%)</span><span>max 25%</span></div>` : ''; })() : ''}
       <button class="drawer-toggle ${isOpen?'open':''}" data-drawer="${c.key}">
         ${isOpen?'Hide':'Show'} tiers &amp; goals
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -781,6 +807,7 @@ function buildAdvisorMailto(tierIdx){
 function renderOfficial(){
   document.getElementById('advisorDisplayName').textContent = ADVISOR.name;
   document.getElementById('advisorDisplayEmail').textContent = ADVISOR.email;
+  document.getElementById('activityStartDateInput').value = activityStartDate || '';
 
   const list = document.getElementById('tierStatusList');
   list.innerHTML = TIERS.map((t,i)=>{
@@ -824,6 +851,12 @@ function renderOfficial(){
     if(!tierStatus[i].advisorRequested){ tierStatus[i].advisorRequested = true; saveMeta(); renderOfficial(); }
   }));
 }
+document.getElementById('activityStartDateSaveBtn').onclick = ()=>{
+  activityStartDate = document.getElementById('activityStartDateInput').value || '';
+  saveMeta();
+  alert(activityStartDate ? `Activity Start Date set to ${niceDate(activityStartDate)}.` : 'Activity Start Date cleared.');
+};
+
 function emptyState(title,sub,iconPath){
   return `<div class="empty-state">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="${iconPath||'M4 20l4-1 10-10-3-3L5 16z'}"/></svg>
@@ -988,7 +1021,7 @@ function openLogSheet(id){
   const entry = id ? logs.find(l=>l.id===id) : null;
   pickCat('logCatSelect', entry ? entry.category : (logFilter!=='all'?logFilter:CATS[0].key));
   populateGoalSelect(getPickedCat('logCatSelect'));
-  document.getElementById('logDate').value = entry ? entry.date : new Date().toISOString().slice(0,10);
+  document.getElementById('logDate').value = entry ? entry.date : localDateStr(new Date());
   document.getElementById('logHours').value = entry ? entry.hours : '';
   document.getElementById('logDesc').value = entry ? entry.desc : '';
   document.getElementById('logIndirect').checked = entry ? !!entry.indirect : false;
@@ -1003,11 +1036,16 @@ document.getElementById('logSave').onclick = ()=>{
   const hours = parseFloat(document.getElementById('logHours').value);
   if(!category){ alert('Pick a category.'); return; }
   if(!hours || hours<=0){ alert('Enter hours greater than 0.'); return; }
+  const entryDate = document.getElementById('logDate').value || localDateStr(new Date());
+  if(activityStartDate && entryDate < activityStartDate){
+    const proceed = confirm(`This date (${niceDate(entryDate)}) is before your Activity Start Date (${niceDate(activityStartDate)}). These hours won't count toward your Congressional Award. Log it anyway just for your own tracking?`);
+    if(!proceed) return;
+  }
   const data = {
     id: editingLogId || uid(),
     category,
     goalId: document.getElementById('logGoalSelect').value || '',
-    date: document.getElementById('logDate').value || new Date().toISOString().slice(0,10),
+    date: entryDate,
     hours,
     desc: document.getElementById('logDesc').value.trim(),
     indirect: document.getElementById('logIndirect').checked,
@@ -1116,7 +1154,7 @@ document.getElementById('exportPacketBtn').onclick = ()=>{
       });
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(reflRows), 'Reflections');
-    const dateStr = new Date().toISOString().slice(0,10);
+    const dateStr = localDateStr(new Date());
     XLSX.writeFile(wb, `Carson_Submittable_Packet_${dateStr}.xlsx`);
   }catch(e){
     console.error(e);
@@ -1152,7 +1190,7 @@ document.getElementById('exportBtn').onclick = ()=>{
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(logSheetData), 'Log');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(goalSheetData), 'Goals');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), 'Summary');
-    const dateStr = new Date().toISOString().slice(0,10);
+    const dateStr = localDateStr(new Date());
     XLSX.writeFile(wb, `Carson_Congressional_Award_${dateStr}.xlsx`);
   }catch(e){
     console.error(e);
